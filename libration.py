@@ -40,18 +40,19 @@ class Libration():
         self.time = 0.
 
         # Paramètres du problème
-        self.ellipticity = 0.               # Ellipticité de l'orbite lunaire
-        self.a = 380000                     # demi grand axe de l'orbite lunaire (km)
-        self.orbit_inclination = 5.5        # Inclinaison de l'orbite lunaire par rapport au plan de l'écliptique (°)
+        self.ellipticity = 0.05490*10               # Ellipticité de l'orbite lunaire
+        self.a = 384399                     # demi grand axe de l'orbite lunaire (km)
+        self.orbit_inclination = 5.145        # Inclinaison de l'orbite lunaire par rapport au plan de l'écliptique (°)
         self.earth_axis_inclination = 27    # Inclinaison de l'axe de rotation de la Terre par rapport au plan de l'écliptique
-        self.moon_axis_inclination = 5.5    # Inclinaison de l'axe de rotation de la Lune par rapport au plan de l'écliptique
-        self.T = 28.5                       # Période de rotation (sidérale ?) de la Lune
-        self.earth_radius = 12000/2           # Rayon de la Terre (km)
-        self.moon_radius = 3500/2*100            # Rayon de la Lune (km)
+        self.moon_axis_inclination = 6.68    # Inclinaison de l'axe de rotation de la Lune par rapport au plan de son orbite autour de la Terre
+        self.T = 27.321                       # Période de rotation (sidérale ?) de la Lune
+        self.earth_radius = 12000/2*5           # Rayon de la Terre (km)
+        self.moon_radius = 1736.*50            # Rayon de la Lune (km)
 
         # Paramètres d'état
         self._self_rotation_angle = 0. # Angle de rotation propre
         self._theta = 0.               # coordonnée angulaire du référentiel géocentrique
+        self._omega = 0.               # paramètre de rotation propre de la Lune
         self._r = 0.                   # coordonnée de distance du référenciel géocentrique
 
 
@@ -59,12 +60,22 @@ class Libration():
     def set_time(self,time):
         self.time = time
 
-    def get_distance(self):
+    def get_distance(self, theta=None):
         """Renvoi la distance Terre-Lune (r)
-        """
-        pass
+        
+        see https://en.wikipedia.org/wiki/Kepler%27s_laws_of_planetary_motion
 
-    def get_orbit_XYZ(self):
+        """
+
+        p = self.a*(1-self.ellipticity**2)
+
+        if theta==None:
+            theta = self.time/self.T *2 * np.pi
+        self._r = p/(1+self.ellipticity * np.cos(theta))
+
+        return self._r
+
+    def get_orbit_XYZ(self, theta=None):
         """Renvoi les coordonnées cartésiennes de la lune dans le référentiel geocentrique.
 
         note : le référentiel géocentrique -> e_x et et e_y sont dans le plan de l'écliptique 
@@ -72,12 +83,16 @@ class Libration():
         """
 
 
-        x = R * cos(self.time/self.T * 2 * np.pi) 
-        y = R * sin(self.time/self.T * 2 * np.pi) 
+        if theta == None :
+            theta = self.time/self.T * 2 * np.pi
+
+        r = self.get_distance(theta)
+        x = r * cos(theta) 
+        y = r * sin(theta) 
         return x, y, None
 
     
-
+    
 
 
 class LibrationPlot(Libration):
@@ -89,16 +104,38 @@ class LibrationPlot(Libration):
         self.axis=axis
 
         # Disque lunaire
-        print(self.a, self.moon_radius)
         self.top_moon_disc = plt.Circle((self.a, 0), self.moon_radius, color='r')
-
         self.axis.add_patch(self.top_moon_disc)
-
+        self.top_moon_orbit = plt.Circle((self.a, 0), self.moon_radius, color='r')
+        self.axis.add_patch(self.top_moon_disc)
+        self.update_moon_orbit_lines()
+    
     def update_top_moon_disc(self):
         x, y, z = self.get_orbit_XYZ()
-        self.top_moon_disc.center
         self.top_moon_disc.center = (x, y)
-        return self.top_moon_disc
+        return [self.top_moon_disc]
+
+    def update_moon_orbit_lines(self):
+        self.moon_orbit_lines, = self.axis.plot([], [], '--', lw=0.5, color='k')
+        pos = np.empty((1000, 2))
+        for i, pos_i in enumerate(pos):
+            x, y, z = self.get_orbit_XYZ(i*np.pi*2/1000)
+            pos[i,0] = x
+            pos[i,1] = y
+        self.moon_orbit_lines.set_data(pos[:,0], pos[:,1])
+
+
+
+    def animate(self, time):
+
+        self.set_time(time)
+
+        # Plot de l'orbite vu de dessus
+        top_moon_disc = self.update_top_moon_disc()
+  
+        # return top_moon_disc
+        # Must return an iterable
+        return [self.top_moon_disc]
 
 
 libration_parameters = Libration()
@@ -108,25 +145,18 @@ ax = fig.add_subplot(autoscale_on=False, xlim=(-2*libration_parameters.a, 2*libr
 ax.set_aspect('equal')
 ax.grid()
 
+top_earth_disc = plt.Circle((0, 0), libration_parameters.earth_radius, color='b')
+ax.add_patch(top_earth_disc)
 
 
 libration = LibrationPlot(ax)
 # create a time array from 0..t_stop in days
-dt = 0.5
+dt = 0.0005
 t = np.arange(0, libration_parameters.T, dt)
 
-
-def animate(time):
-
-    libration.set_time(time)
-
-    # Plot de l'orbite vu de dessus
-    top_moon_disc = libration.update_top_moon_disc()
-    # return top_moon_disc
-    # Must return an iterable
-    return [libration.top_moon_disc]
+print(f'nb points = {len(t)}')
 
 
 ani = animation.FuncAnimation(
-    fig, animate, frames= len(t), interval=dt*100, blit=True)
+    fig, libration.animate, frames= len(t), interval=dt*100000, blit=True)
 plt.show()
