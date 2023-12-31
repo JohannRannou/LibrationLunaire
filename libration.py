@@ -7,19 +7,14 @@ https://nickcharlton.net/posts/drawing-animating-shapes-matplotlib.html
 import matplotlib.pyplot as plt
 import numpy as np
 from numpy import cos, sin
-
+import matplotlib.patches as mpatches
 import matplotlib.animation as animation
 
 
 
 
 
-e = 1         # Ellipticité
-R = 380000.   # Rayon (km)
-t_stop =28       # Time range of the simulation
-T = 28        # Periode (days)
-
-
+TWOPI = 2 * np.pi
 
 class Libration():
     """Calcule les paramètres de l'orbite lunaire pour mettre en évidence la libration
@@ -54,11 +49,30 @@ class Libration():
         self._theta = 0.               # coordonnée angulaire du référentiel géocentrique
         self._omega = 0.               # paramètre de rotation propre de la Lune
         self._r = 0.                   # coordonnée de distance du référenciel géocentrique
-
-
+        self._x = 0.                   # x,y,z : 3 paramètres cartésien dans le référentiel géocentrique
+        self._y = 0.
+        self._z = 0.
+        self._face_radius = 1.
 
     def set_time(self,time):
+        """
+        time in days
+        """
         self.time = time
+
+
+    def update(self, time):
+        """
+        time in days
+        """
+        self.set_time(time)
+        self._theta = self.time / self.T * 2 * np.pi
+        self.get_distance()
+        self.get_orbit_XYZ()
+        self.compute_omega()
+        self.compute_face_radius()
+
+        print(f'at day {self.time} : theta = {self._theta*360/TWOPI}, omega = {self._omega*360/TWOPI}, r = {self._r}')
 
     def get_distance(self, theta=None):
         """Renvoi la distance Terre-Lune (r)
@@ -75,6 +89,18 @@ class Libration():
 
         return self._r
 
+    def compute_face_radius(self):
+        """Retourne le diamètre apparent de la Lune en °
+        """
+        # self._face_radius = self.moon_radius*self.a / self._r*360/TWOPI
+        self._face_radius = 0.25 * self.a / self._r
+
+    def compute_omega(self):
+        # Pour l'instant c'est faux, ça pointe vers le centre de l'ellipse
+
+        self._omega = np.arctan2(self._y , (self._x + self.a*self.ellipticity))
+        
+
     def get_orbit_XYZ(self, theta=None):
         """Renvoi les coordonnées cartésiennes de la lune dans le référentiel geocentrique.
 
@@ -86,10 +112,10 @@ class Libration():
         if theta == None :
             theta = self.time/self.T * 2 * np.pi
 
-        r = self.get_distance(theta)
-        x = r * cos(theta) 
-        y = r * sin(theta) 
-        return x, y, None
+        self.get_distance(theta)
+        self._x = self._r * cos(theta) 
+        self._y = self._r * sin(theta) 
+        return self._x, self._y, None
 
     
     
@@ -123,34 +149,34 @@ class LibrationPlot(Libration):
 
         x, y, z = self.get_orbit_XYZ()
 
-        pix2 = 2 * np.pi
-        meridian_angles = [0, -45, 45, 90]
-        meridian_angles = [a/180*np.pi for a in meridian_angles ]
+        meridian_angles = np.array([0, 45, 90]) * np.pi/180
+        meridian_colors = ['b', 'g', 'r']
 
         try:
             self.top_moon_meridians
         except AttributeError:
             self.top_moon_meridians = []
             for i, pos_i in enumerate(meridian_angles):
-                moon_meridian, = self.top_orbit_axis.plot([], [], '-', lw=2., color='k')
+                moon_meridian, = self.top_orbit_axis.plot([], [], '-', lw=1, color=meridian_colors[i])
                 self.top_moon_meridians.append(moon_meridian)
 
 
         for i, angle in enumerate(meridian_angles):
-            print(x,y, angle)
             pt_1 = [
                     -1*self.moon_radius*np.cos(angle + self._omega) + x, 
-                       self.moon_radius*np.cos(angle + self._omega) + x,    
+                       self.moon_radius*np.cos(angle + self._omega)*0 + x,    
                     ]
             pt_2 = [
                     -1*self.moon_radius*np.sin(angle + self._omega) + y,
-                       self.moon_radius*np.sin(angle + self._omega) + y
+                       self.moon_radius*np.sin(angle + self._omega)*0 + y
                        ]
             self.top_moon_meridians[i].set_data(pt_1, pt_2) 
             
 
         return self.top_moon_meridians
 
+
+  
     def plot_moon_orbit_lines(self):
         """Trace l'orbite elliptique de la Lune (statique)
         """
@@ -170,28 +196,62 @@ class LibrationPlot(Libration):
         try:
             self.moon_face_disc
         except AttributeError:
-            self.moon_face_disc = plt.Circle((0, 0), 1, color='y')
+            self.moon_face_disc = plt.Circle((0, 0), self._face_radius, color='y')
             self.moon_face_axis.add_patch(self.moon_face_disc)
 
-        self.get_distance()
-        self.moon_face_disc.radius = (0.5*self._r/self.a)
+        self.moon_face_disc.radius = (self._face_radius)
         return [self.moon_face_disc]
     
-        
+
+    def plot_moon_face_meridians(self):
+        """Trace les méridiens de la Lune vu de face (à updater)
+
+        pour l'instant j'en trace 6 (3 lignes)
+        """
+
+        TWOPI = 2 * np.pi
+        # meridian_angles = np.array([0, -45, 45, 90])*np.pi/180
+        # meridian_colors = ['g','g','g','r']
+
+        meridian_angles = np.array([0, 90,  45])*np.pi/180
+        meridian_colors = ['r','b','g']
+
+        try:
+            self.moon_face_meridians
+        except AttributeError:
+            self.moon_face_meridians = []
+            for i, pos_i in enumerate(meridian_angles):
+               moon_face_meridian = mpatches.Arc((0, 0), 2 * self._face_radius, 0., color=meridian_colors[i])
+               self.moon_face_axis.add_patch(moon_face_meridian)
+               self.moon_face_meridians.append(moon_face_meridian)
+        for i, meridian in enumerate(self.moon_face_meridians):
+            meridian.width = 2 *self._face_radius*np.cos(self._omega - self._theta + meridian_angles[i])
+            meridian.height = 2 * self._face_radius
+            # meridian.theta1 = 0 + meridian_angles[i]*360/TWOPI
+            # meridian.theta2 = 180 + meridian_angles[i]*360/TWOPI
+
+            meridian.theta1 = 90 + 1e-6 + np.sign(self._omega + self._theta + meridian_angles[i])* 180
+            meridian.theta2 =  270 - 1e-6 + np.sign(self._omega + self._theta + meridian_angles[i])* 180
+            # meridian.theta1 = -90 - 0.000001 
+            # meridian.theta2 =  90 -0.000001
+
+
+        return self.moon_face_meridians
+
 
 
     def animate(self, time):
 
-        self.set_time(time)
-
+        self.update(time)
         # Plot de l'orbite vu de dessus
         self.plot_top_moon_disc()
         self.plot_top_moon_meridians()
         self.plot_moon_face()
+        self.plot_moon_face_meridians()
         # return top_moon_disc
         # Must return an iterable
         # print(self.top_moon_disc + self.top_moon_meridians)
-        return [self.top_moon_disc] + self.top_moon_meridians + [self.moon_face_disc]
+        return [self.top_moon_disc] + self.top_moon_meridians + [self.moon_face_disc] + self.moon_face_meridians
 
 
 libration_parameters = Libration()
@@ -211,14 +271,13 @@ ax1.add_patch(top_earth_disc)
 
 libration = LibrationPlot((ax1, ax2))
 # create a time array from 0..t_stop in days
-dt = 0.0005
-# t = np.arange(0, libration_parameters.T, dt)
-# t = np.arange(0, libration_parameters.T/1000, dt)
-t = np.arange(0, 360, dt)
-
+dt = 0.1
+t = np.arange(0, libration_parameters.T, dt)
+# t=[5]
+print(t)
 print(f'nb points = {len(t)}')
 
 
 ani = animation.FuncAnimation(
-    fig, libration.animate, frames= len(t), interval=dt*100000, blit=True)
+    fig, libration.animate, frames= t, interval=100, blit=True)
 plt.show()
