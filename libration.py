@@ -39,11 +39,12 @@ class Libration():
         # Paramètres du problème
         self.ellipticity = 0.05490*10               # Ellipticité de l'orbite lunaire
         self.a = 384399                     # demi grand axe de l'orbite lunaire (km)
+        self.b = self.a*np.sqrt(1-self.ellipticity**2)                     # demi petit axe de l'orbite lunaire (km)
+        self.c = np.sqrt(self.a**2 - self.b**2)                            # distance centre-foyer (km)
         self.orbit_inclination = 5.145        # Inclinaison de l'orbite lunaire par rapport au plan de l'écliptique (°)
-        self.earth_axis_inclination = 27    # Inclinaison de l'axe de rotation de la Terre par rapport au plan de l'écliptique
+        self.earth_axis_inclination = 23.44    # Obliquité : inclinaison de l'axe de rotation de la Terre par rapport au plan de l'écliptique
         self.moon_axis_inclination = 6.68    # Inclinaison de l'axe de rotation de la Lune par rapport au plan de son orbite autour de la Terre
         self.T = 27.321                       # Période de rotation (sidérale ?) de la Lune
-        self.T = 10.
         self.earth_radius = 12000/2*5           # Rayon de la Terre (km)
         self.moon_radius = 1736.*50            # Rayon de la Lune (km)
 
@@ -51,11 +52,20 @@ class Libration():
         self._self_rotation_angle = 0. # Angle de rotation propre
         self._theta = 0.               # coordonnée angulaire du référentiel géocentrique
         self._omega = 0.               # paramètre de rotation propre de la Lune
+        self._alpha = 0.               # angle entre l'équateur de la Lune et le plan de l'écliptique
         self._r = 0.                   # coordonnée de distance du référenciel géocentrique
         self._x = 0.                   # x,y,z : 3 paramètres cartésien dans le référentiel géocentrique
         self._y = 0.
         self._z = 0.
         self._face_radius = 1.
+
+        self._modify()
+
+    def _modify(self):
+        """Modify parameters to highlight a specific phenomenon
+        """
+        self.T = 10.
+        # self.orbit_inclination = 45
 
     def set_time(self,time):
         """
@@ -71,8 +81,9 @@ class Libration():
         self.set_time(time)
         self._theta = self.time / self.T * 2 * np.pi
         self.get_distance()
-        self.get_orbit_XYZ()
+        self.compute_orbit_XYZ()
         self.compute_omega()
+        self.compute_beta()
         self.compute_face_radius()
 
         print(f'at day {self.time} : theta = {self._theta*360/TWOPI}, omega = {self._omega*360/TWOPI}, r = {self._r}')
@@ -102,9 +113,14 @@ class Libration():
         # Pour l'instant c'est faux, ça pointe vers le centre de l'ellipse
 
         self._omega = np.arctan2(self._y , (self._x + self.a*self.ellipticity))
+
+    def compute_beta(self):
+
+        self._omega = np.arctan2(self._y , (self._x + self.a*self.ellipticity))
         
 
-    def get_orbit_XYZ(self, theta=None):
+
+    def compute_orbit_XYZ(self, theta=None):
         """Renvoi les coordonnées cartésiennes de la lune dans le référentiel geocentrique.
 
         note : le référentiel géocentrique -> e_x et et e_y sont dans le plan de l'écliptique 
@@ -118,6 +134,8 @@ class Libration():
         self.get_distance(theta)
         self._x = self._r * cos(theta) 
         self._y = self._r * sin(theta) 
+        self._z = self._x * np.tan(np.radians(self.orbit_inclination)) 
+
         return self._x, self._y, None
 
     
@@ -130,22 +148,39 @@ class LibrationPlot(Libration):
 
     def __init__(self, axis):
         Libration.__init__(self)
-        self.top_orbit_axis, self.moon_face_axis = axis
+        self.top_orbit_axis, self.moon_face_axis, self.front_orbit_axis = axis
 
         # Disque lunaire
-        self.top_moon_disc = plt.Circle((self.a, 0), self.moon_radius, color='gold')
+        self.top_moon_disc = plt.Circle((self.a, 0), self.moon_radius, color='gold', alpha=0.75)
         self.top_orbit_axis.add_patch(self.top_moon_disc)
         self.plot_moon_orbit_lines()
     
         self.meridian_angles = np.array([180, 180-45, 90]) * np.pi/180
         self.meridian_colors = ['r', 'b', 'k']
 
+        self.parallel_angles = np.array([180, 180-45, 90]) * np.pi/180
+        self.parallel_colors = ['r', 'b', 'k']
+
+
     def plot_top_moon_disc(self):
         """Trace le disque lunaire (à updater)
         """
-        x, y, z = self.get_orbit_XYZ()
+        x, y, z = self.compute_orbit_XYZ()
         self.top_moon_disc.center = (x, y)
         return [self.top_moon_disc]
+
+
+    def plot_front_moon_disc(self):
+        """Trace le disque lunaire (à updater)
+        """
+        try:
+            self.front_moon_disc
+        except:
+            self.front_moon_disc = plt.Circle((self.a, 0), self.moon_radius, color='gold', alpha=0.75)
+            self.front_orbit_axis.add_patch(self.front_moon_disc)
+
+        self.front_moon_disc.center = (self._x, self._z)
+
 
   
     def plot_moon_orbit_lines(self):
@@ -154,11 +189,14 @@ class LibrationPlot(Libration):
         self.moon_orbit_lines, = self.top_orbit_axis.plot([], [], '--', lw=0.5, color='k')
         pos = np.empty((1000, 2))
         for i, pos_i in enumerate(pos):
-            x, y, z = self.get_orbit_XYZ(i*np.pi*2/1000)
+            x, y, z = self.compute_orbit_XYZ(i*np.pi*2/1000)
             pos[i,0] = x
             pos[i,1] = y
         self.moon_orbit_lines.set_data(pos[:,0], pos[:,1])
 
+
+
+        self.front_moon_orbit_lines, = self.front_orbit_axis.plot([-(self.a+self.c), (self.a-self.c)], [-(self.a+self.c)*np.tan(np.radians(self.orbit_inclination)), +(self.a-self.c)*np.tan(np.radians(self.orbit_inclination))], '--', lw=0.5, color='k')
 
     def plot_moon_face(self):
         """Trace la lune vu de face : disque et méridiens
@@ -167,7 +205,7 @@ class LibrationPlot(Libration):
         try:
             self.moon_face_disc
         except AttributeError:
-            self.moon_face_disc = plt.Circle((0, 0), self._face_radius, color='gold')
+            self.moon_face_disc = plt.Circle((0, 0), self._face_radius, color='gold', alpha=0.75)
             self.moon_face_axis.add_patch(self.moon_face_disc)
 
         self.moon_face_disc.radius = (self._face_radius)
@@ -226,7 +264,7 @@ class LibrationPlot(Libration):
         pour l'instant j'en trace 6 (3 lignes)
         """
 
-        x, y, z = self.get_orbit_XYZ()
+        x, y, z = self.compute_orbit_XYZ()
 
        
 
@@ -254,18 +292,59 @@ class LibrationPlot(Libration):
 
         return self.top_moon_meridians
 
+
+
+
+    def plot_front_moon_parallels(self):
+        """ Trace les méridiens de la Lune vu de dessus (à updater)
+
+        pour l'instant j'en trace 6 (3 lignes)
+        """
+
+        x, y, z = self.compute_orbit_XYZ()
+
+        try:
+            self.front_moon_parallels
+        except AttributeError:
+            self.front_moon_parallels = []
+            for i, pos_i in enumerate(self.parallel_angles):
+                moon_parallel, = self.front_orbit_axis.plot([], [], '-', lw=1, color=self.parallel_colors[i])
+                self.front_moon_parallels.append(moon_parallel)
+
+
+        for i, angle in enumerate(self.parallel_angles):
+            pt_1 = [
+                        x,    
+                        self.moon_radius*np.cos(angle + self._omega) + x, 
+                    ]
+            pt_2 = [
+                        y,
+                       self.moon_radius*np.sin(angle + self._omega) + y,
+                       ]
+            self.front_moon_parallels[i].set_data(pt_1, pt_2) 
+            
+
+        return self.front_moon_parallels
+
+
+
+
+
     def animate(self, time):
 
         self.update(time)
         # Plot de l'orbite vu de dessus
         self.plot_top_moon_disc()
+        self.plot_front_moon_disc()
         self.plot_top_moon_meridians()
         self.plot_moon_face()
         self.plot_moon_face_meridians()
+        # self.plot_front_moon_parallels(self)
+
         # return top_moon_disc
         # Must return an iterable
         # print(self.top_moon_disc + self.top_moon_meridians)
-        return [self.top_moon_disc] + self.top_moon_meridians + [self.moon_face_disc] + self.moon_face_meridians
+        return [self.top_moon_disc] +[self.front_moon_disc] + self.top_moon_meridians + [self.moon_face_disc] + self.moon_face_meridians #+ self.front_moon_parallels
 
 
 libration_parameters = Libration()
@@ -273,17 +352,23 @@ libration_parameters = Libration()
 fig = plt.figure(figsize=(10, 10))
 
 # fig, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
-ax1 = fig.add_subplot(121, autoscale_on=False, xlim=(-2*libration_parameters.a, 2*libration_parameters.a), ylim=(-2*libration_parameters.a, 2*libration_parameters.a))
-ax2 = fig.add_subplot(122, autoscale_on=False, xlim=(-1, 1), ylim=(-1, 1))
+ax1 = fig.add_subplot(221, autoscale_on=False, xlim=(-2*libration_parameters.a, 2*libration_parameters.a), ylim=(-2*libration_parameters.a, 2*libration_parameters.a))
+ax2 = fig.add_subplot(222, autoscale_on=False, xlim=(-1, 1), ylim=(-1, 1))
+ax3 = fig.add_subplot(223, autoscale_on=False, xlim=(-2*libration_parameters.a, 2*libration_parameters.a), ylim=(-2*libration_parameters.a, 2*libration_parameters.a))
 ax1.set_aspect('equal')
 ax2.set_aspect('equal')
 ax1.grid()
+ax2.grid()
+ax3.grid()
+
 
 top_earth_disc = plt.Circle((0, 0), libration_parameters.earth_radius, color='b')
 ax1.add_patch(top_earth_disc)
+front_earth_disc = plt.Circle((0, 0), libration_parameters.earth_radius, color='b')
+ax3.add_patch(front_earth_disc)
 
 
-libration = LibrationPlot((ax1, ax2))
+libration = LibrationPlot((ax1, ax2, ax3))
 # create a time array from 0..t_stop in days
 dt = 0.1
 t = np.arange(0, libration_parameters.T, dt)
