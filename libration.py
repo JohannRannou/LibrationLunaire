@@ -148,6 +148,22 @@ class Libration():
 
 class LibrationPlot(Libration):
     """Complète la classe Libration avec des fonction qui tracent les éléments à afficher
+
+
+    Il y a plusieurs vues :
+
+    
+
+        * vue de face
+
+
+        * vue de dessus
+
+
+
+
+
+
     """
 
     def __init__(self, axis):
@@ -370,9 +386,9 @@ libration_parameters = Libration()
 fig = plt.figure(figsize=(10, 10))
 
 # fig, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
-ax1 = fig.add_subplot(221, autoscale_on=False, xlim=(-2*libration_parameters.a, 2*libration_parameters.a), ylim=(-2*libration_parameters.a, 2*libration_parameters.a))
-ax2 = fig.add_subplot(222, autoscale_on=False, xlim=(-1, 1), ylim=(-1, 1))
-ax3 = fig.add_subplot(223, autoscale_on=False, xlim=(-2*libration_parameters.a, 2*libration_parameters.a), ylim=(-2*libration_parameters.a, 2*libration_parameters.a))
+ax1 = fig.add_subplot(223, autoscale_on=False, xlim=(-2*libration_parameters.a, 2*libration_parameters.a), ylim=(-2*libration_parameters.a, 2*libration_parameters.a))
+ax2 = fig.add_subplot(224, autoscale_on=False, xlim=(-1, 1), ylim=(-1, 1))
+ax3 = fig.add_subplot(221, autoscale_on=False, xlim=(-2*libration_parameters.a, 2*libration_parameters.a), ylim=(-2*libration_parameters.a, 2*libration_parameters.a))
 ax1.set_aspect('equal')
 ax2.set_aspect('equal')
 ax1.grid()
