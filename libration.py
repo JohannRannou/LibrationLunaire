@@ -41,9 +41,10 @@ class Libration():
         self.a = 384399                     # demi grand axe de l'orbite lunaire (km)
         self.b = self.a*np.sqrt(1-self.ellipticity**2)                     # demi petit axe de l'orbite lunaire (km)
         self.c = np.sqrt(self.a**2 - self.b**2)                            # distance centre-foyer (km)
-        self.orbit_inclination = 5.145        # Inclinaison de l'orbite lunaire par rapport au plan de l'écliptique (°)
         self.earth_axis_inclination = 23.44    # Obliquité : inclinaison de l'axe de rotation de la Terre par rapport au plan de l'écliptique
-        self.moon_axis_inclination = 6.68    # Inclinaison de l'axe de rotation de la Lune par rapport au plan de son orbite autour de la Terre
+        self.orbit_inclination = 5.145       # Inclinaison de l'orbite lunaire par rapport au plan de l'écliptique (°)
+        self.moon_axis_inclination = 6.68   # Inclinaison de l'axe de rotation de la Lune par rapport au plan de son orbite autour de la Terre
+        self.alpha = (self.orbit_inclination - self.moon_axis_inclination )  # angle en degrés entre l'équateur de la Lune et le plan de l'écliptique
         self.T = 27.321                       # Période de rotation (sidérale ?) de la Lune
         self.earth_radius = 12000/2*5           # Rayon de la Terre (km)
         self.moon_radius = 1736.*50            # Rayon de la Lune (km)
@@ -52,7 +53,6 @@ class Libration():
         self._self_rotation_angle = 0. # Angle de rotation propre
         self._theta = 0.               # coordonnée angulaire du référentiel géocentrique
         self._omega = 0.               # paramètre de rotation propre de la Lune
-        self._alpha = 0.               # angle entre l'équateur de la Lune et le plan de l'écliptique
         self._r = 0.                   # coordonnée de distance du référenciel géocentrique
         self._x = 0.                   # x,y,z : 3 paramètres cartésien dans le référentiel géocentrique
         self._y = 0.
@@ -64,9 +64,13 @@ class Libration():
     def _modify(self):
         """Modify parameters to highlight a specific phenomenon
         """
+        self.orbit_inclination = 10       # Inclinaison de l'orbite lunaire par rapport au plan de l'écliptique (°)
+        self.moon_axis_inclination = 20   # Inclinaison de l'axe de rotation de la Lune par rapport au plan de son orbite autour de la Terre
         self.T = 10.
-        # self.orbit_inclination = 45
-
+        # self.orbit_inclination = 20
+        # Recalculé ici au cas ou les paramètres seraient modifiés ici
+        self.alpha = (self.orbit_inclination - self.moon_axis_inclination)
+    
     def set_time(self,time):
         """
         time in days
@@ -136,7 +140,7 @@ class Libration():
         self._y = self._r * sin(theta) 
         self._z = self._x * np.tan(np.radians(self.orbit_inclination)) 
 
-        return self._x, self._y, None
+        return self._x, self._y, self._z 
 
     
     
@@ -185,6 +189,7 @@ class LibrationPlot(Libration):
   
     def plot_moon_orbit_lines(self):
         """Trace l'orbite elliptique de la Lune (statique)
+        sur les vues de face et de dessus
         """
         self.moon_orbit_lines, = self.top_orbit_axis.plot([], [], '--', lw=0.5, color='k')
         pos = np.empty((1000, 2))
@@ -277,7 +282,6 @@ class LibrationPlot(Libration):
                 moon_meridian, = self.top_orbit_axis.plot([], [], '-', lw=1, color=self.meridian_colors[i])
                 self.top_moon_meridians.append(moon_meridian)
 
-
         for i, angle in enumerate(self.meridian_angles):
             pt_1 = [
                         x,    
@@ -296,33 +300,47 @@ class LibrationPlot(Libration):
 
 
     def plot_front_moon_parallels(self):
-        """ Trace les méridiens de la Lune vu de dessus (à updater)
+        """ Trace les parallèles de la Lune vu de dessus (à updater)
 
-        pour l'instant j'en trace 6 (3 lignes)
+        pour l'instant je ne trace que l'équateur et ça devrait suffire)
+
+        Je rajouter l'axe de rotation aussi, ce n'est pas un parallèle certes ...
         """
 
         x, y, z = self.compute_orbit_XYZ()
-
+       
         try:
             self.front_moon_parallels
-        except AttributeError:
+        except:
             self.front_moon_parallels = []
-            for i, pos_i in enumerate(self.parallel_angles):
-                moon_parallel, = self.front_orbit_axis.plot([], [], '-', lw=1, color=self.parallel_colors[i])
-                self.front_moon_parallels.append(moon_parallel)
-
-
-        for i, angle in enumerate(self.parallel_angles):
-            pt_1 = [
-                        x,    
-                        self.moon_radius*np.cos(angle + self._omega) + x, 
-                    ]
-            pt_2 = [
-                        y,
-                       self.moon_radius*np.sin(angle + self._omega) + y,
-                       ]
-            self.front_moon_parallels[i].set_data(pt_1, pt_2) 
+            moon_equator, = self.front_orbit_axis.plot([], [], '-', lw=1, color = 'k')
+            self.front_moon_parallels.append(moon_equator)
             
+            moon_rotation_axis, = self.front_orbit_axis.plot([], [], '--', lw=0.5
+                                                             , color = 'k')
+            self.front_moon_parallels.append(moon_rotation_axis)
+
+
+        print(self.alpha)
+        pt_1 = [x - self.moon_radius * np.cos(np.radians(self.alpha)),
+                x + self.moon_radius * np.cos(np.radians(self.alpha)),
+                ]
+        
+        pt_2 = [z - self.moon_radius * np.sin(np.radians(self.alpha)),
+                z + self.moon_radius * np.sin(np.radians(self.alpha)),
+                ]
+        self.front_moon_parallels[0].set_data(pt_1, pt_2)
+
+        pt_3 = [x - self.moon_radius * 1.4 * np.sin(np.radians(self.alpha)),
+                x + self.moon_radius * 1.4 * np.sin(np.radians(self.alpha)),
+                ]
+        
+        pt_4 = [z + self.moon_radius * 1.4 * np.cos(np.radians(self.alpha)),
+                z - self.moon_radius * 1.4 * np.cos(np.radians(self.alpha)),
+                ]
+        self.front_moon_parallels[1].set_data(pt_3, pt_4)
+
+
 
         return self.front_moon_parallels
 
@@ -339,12 +357,12 @@ class LibrationPlot(Libration):
         self.plot_top_moon_meridians()
         self.plot_moon_face()
         self.plot_moon_face_meridians()
-        # self.plot_front_moon_parallels(self)
+        self.plot_front_moon_parallels()
 
         # return top_moon_disc
         # Must return an iterable
         # print(self.top_moon_disc + self.top_moon_meridians)
-        return [self.top_moon_disc] +[self.front_moon_disc] + self.top_moon_meridians + [self.moon_face_disc] + self.moon_face_meridians #+ self.front_moon_parallels
+        return [self.top_moon_disc] +[self.front_moon_disc] + self.top_moon_meridians + [self.moon_face_disc] + self.moon_face_meridians + self.front_moon_parallels
 
 
 libration_parameters = Libration()
