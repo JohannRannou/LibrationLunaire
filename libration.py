@@ -173,7 +173,7 @@ class LibrationPlot(Libration):
         # Disque lunaire
         self.top_moon_disc = plt.Circle((self.a, 0), self.moon_radius, color='gold', alpha=0.75)
         self.top_orbit_axis.add_patch(self.top_moon_disc)
-        self.plot_moon_orbit_lines()
+        self.plot_moon_orbit_segments()
     
         self.meridian_angles = np.array([180, 180-45, 90]) * np.pi/180
         self.meridian_colors = ['r', 'b', 'k']
@@ -203,21 +203,22 @@ class LibrationPlot(Libration):
 
 
   
-    def plot_moon_orbit_lines(self):
+    def plot_moon_orbit_segments(self):
         """Trace l'orbite elliptique de la Lune (statique)
         sur les vues de face et de dessus
         """
-        self.moon_orbit_lines, = self.top_orbit_axis.plot([], [], '--', lw=0.5, color='k')
-        pos = np.empty((1000, 2))
+        self.moon_orbit_segments, = self.top_orbit_axis.plot([], [], '--', lw=0.5, color='k')
+        N=100
+        pos = np.empty((N, 2))
         for i, pos_i in enumerate(pos):
-            x, y, z = self.compute_orbit_XYZ(i*np.pi*2/1000)
+            x, y, z = self.compute_orbit_XYZ(i*np.pi*2/N)
             pos[i,0] = x
             pos[i,1] = y
-        self.moon_orbit_lines.set_data(pos[:,0], pos[:,1])
+        self.moon_orbit_segments.set_data(pos[:,0], pos[:,1])
 
 
 
-        self.front_moon_orbit_lines, = self.front_orbit_axis.plot([-(self.a+self.c), (self.a-self.c)], [-(self.a+self.c)*np.tan(np.radians(self.orbit_inclination)), +(self.a-self.c)*np.tan(np.radians(self.orbit_inclination))], '--', lw=0.5, color='k')
+        self.front_moon_orbit_segments, = self.front_orbit_axis.plot([-(self.a+self.c), (self.a-self.c)], [-(self.a+self.c)*np.tan(np.radians(self.orbit_inclination)), +(self.a-self.c)*np.tan(np.radians(self.orbit_inclination))], '--', lw=0.5, color='k')
 
     def plot_moon_face(self):
         """Trace la lune vu de face : disque et méridiens
@@ -234,7 +235,7 @@ class LibrationPlot(Libration):
     
 
     def plot_moon_face_meridians(self):
-        """Trace les méridiens de la Lune vu de face (à updater)
+        """Trace les méridiens de la Lune vu de la Terre (à updater)
 
         pour l'instant j'en trace 6 (3 lignes)
         """
@@ -278,18 +279,37 @@ class LibrationPlot(Libration):
 
 
 
+    def plot_moon_face_equator(self):
+        """Trace l'équateur de la Lune vu de la Terre (à updater)
+
+        La projection du cercle de l'équateur est assez compliqué : c'est un ellipse qui change d'axe entre deux extrèmes :
+            - une ellipse la plus ouverte "horizontale"
+            - une ellipse fermée (un segment droit) incliné de l'angle alpha
+
+        """
+        try: 
+            self.equator_segments
+        except:
+            self.equator_segments, = self.moon_face_axis.plot([], [], '-', lw=2., color='c')
+            # On dessine N segments
+        N = 30
+        t_list = np.linspace( 0, 2 * np.pi, N)
+        pos = np.empty((N, 2))
+        for i, t in enumerate(t_list):
+            pos[i,0] = self._face_radius * (np.cos(self._theta-np.pi/2) * np.cos(self.alpha) * np.cos(t) + np.sin(self._theta-np.pi/2)*np.sin(t))
+            pos[i,1] = self._face_radius * (-np.sin(self.alpha) * np.cos(t))
+        self.equator_segments.set_data(pos[:,0], pos[:,1])
+
+        print('|||||', pos)
+
+
 
     def plot_top_moon_meridians(self):
         """ Trace les méridiens de la Lune vu de dessus (à updater)
 
         pour l'instant j'en trace 6 (3 lignes)
         """
-
-        x, y, z = self.compute_orbit_XYZ()
-
-       
-
-
+ 
         try:
             self.top_moon_meridians
         except AttributeError:
@@ -298,16 +318,16 @@ class LibrationPlot(Libration):
                 moon_meridian, = self.top_orbit_axis.plot([], [], '-', lw=1, color=self.meridian_colors[i])
                 self.top_moon_meridians.append(moon_meridian)
 
-        for i, angle in enumerate(self.meridian_angles):
-            pt_1 = [
-                        x,    
-                        self.moon_radius*np.cos(angle + self._omega) + x, 
-                    ]
-            pt_2 = [
-                        y,
-                       self.moon_radius*np.sin(angle + self._omega) + y,
-                       ]
-            self.top_moon_meridians[i].set_data(pt_1, pt_2) 
+        # for i, angle in enumerate(self.meridian_angles):
+        #     pt_1 = [
+        #                 x,    
+        #                 self.moon_radius*np.cos(angle + self._omega) + x, 
+        #             ]
+        #     pt_2 = [
+        #                 y,
+        #                self.moon_radius*np.sin(angle + self._omega) + y,
+        #                ]
+        #     self.top_moon_meridians[i].set_data(pt_1, pt_2) 
             
 
         return self.top_moon_meridians
@@ -373,12 +393,15 @@ class LibrationPlot(Libration):
         self.plot_top_moon_meridians()
         self.plot_moon_face()
         self.plot_moon_face_meridians()
+        self.plot_moon_face_equator()
+
         self.plot_front_moon_parallels()
+        self.plot_moon_face_equator()
 
         # return top_moon_disc
         # Must return an iterable
         # print(self.top_moon_disc + self.top_moon_meridians)
-        return [self.top_moon_disc] +[self.front_moon_disc] + self.top_moon_meridians + [self.moon_face_disc] + self.moon_face_meridians + self.front_moon_parallels
+        return [self.top_moon_disc] +[self.front_moon_disc] + self.top_moon_meridians + [self.moon_face_disc] + self.moon_face_meridians + self.front_moon_parallels + [self.equator_segments]
 
 
 libration_parameters = Libration()
