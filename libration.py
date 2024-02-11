@@ -6,15 +6,17 @@ https://nickcharlton.net/posts/drawing-animating-shapes-matplotlib.html
 
 import matplotlib.pyplot as plt
 import numpy as np
-from numpy import cos, sin
 import matplotlib.patches as mpatches
 import matplotlib.animation as animation
 
+from numpy import cos, sin
+from numpy import cos
+from numpy import sin
+from numpy import pi
 
 
 
-
-TWOPI = 2 * np.pi
+TWOPI = 2 * pi
 
 
 
@@ -50,7 +52,6 @@ class Libration():
         self.moon_radius = 1736.*50            # Rayon de la Lune (km)
 
         # Paramètres d'état
-        self._self_rotation_angle = 0. # Angle de rotation propre
         self._theta = 0.               # coordonnée angulaire du référentiel géocentrique
         self._omega = 0.               # paramètre de rotation propre de la Lune
         self._r = 0.                   # coordonnée de distance du référenciel géocentrique
@@ -78,6 +79,31 @@ class Libration():
         self.time = time
 
 
+    def _compute_rotation_matrices(self):
+        """Calcule les matrices de rotation
+        
+        Voir notes manuscripts.
+        """
+
+        self.P_l_lp = np.eye(3)
+        self.P_lp_o = np.eye(3)
+        self.P_o_theta = np.eye(3)
+
+        self.P_l_lp[1,1] = cos(-self._omega + pi/2)
+        self.P_l_lp[2,1] = sin(-self._omega + pi/2)
+        self.P_l_lp[1,2] = -sin(-self._omega + pi/2)
+        self.P_l_lp[2,2] = cos(-self._omega + pi/2)
+
+        self.P_lp_o[0,0] = cos(-self.alpha)
+        self.P_lp_o[1,0] = sin(-self.alpha)
+        self.P_lp_o[0,1] = -sin(-self.alpha)
+        self.P_lp_o[1,1] = cos(-self.alpha)
+
+        self.P_o_theta[1,1] = cos(self._theta)
+        self.P_o_theta[2,1] = sin(self._theta)
+        self.P_o_theta[1,2] = -sin(self._theta)
+        self.P_o_theta[2,2] = cos(self._theta)
+
     def update(self, time):
         """
         time in days
@@ -89,7 +115,7 @@ class Libration():
         self.compute_omega()
         self.compute_beta()
         self.compute_face_radius()
-
+        self._compute_rotation_matrices()
         print(f'at day {self.time} : theta = {self._theta*360/TWOPI}, omega = {self._omega*360/TWOPI}, r = {self._r}')
 
     def get_distance(self, theta=None):
@@ -296,11 +322,18 @@ class LibrationPlot(Libration):
         t_list = np.linspace( 0, 2 * np.pi, N)
         pos = np.empty((N, 2))
         for i, t in enumerate(t_list):
-            pos[i,0] = self._face_radius * (np.cos(self._theta-np.pi/2) * np.cos(self.alpha) * np.cos(t) + np.sin(self._theta-np.pi/2)*np.sin(t))
-            pos[i,1] = self._face_radius * (-np.sin(self.alpha) * np.cos(t))
+            # pos[i,0] = self._face_radius * (np.cos(self._theta-np.pi/2) * np.cos(self.alpha) * np.cos(t) + np.sin(self._theta-np.pi/2)*np.sin(t))
+            # pos[i,1] = self._face_radius * (-np.sin(self.alpha) * np.cos(t))
+
+            X_l = self._face_radius * np.array([0, cos(t), sin(t)])
+
+            X_theta = self.P_o_theta.T @ self.P_lp_o.T @ self.P_l_lp.T @ X_l
+
+            pos[i,0] = X_theta[2]
+            pos[i,1] = X_theta[0]
+
         self.equator_segments.set_data(pos[:,0], pos[:,1])
 
-        print('|||||', pos)
 
 
 
@@ -398,9 +431,7 @@ class LibrationPlot(Libration):
         self.plot_front_moon_parallels()
         self.plot_moon_face_equator()
 
-        # return top_moon_disc
         # Must return an iterable
-        # print(self.top_moon_disc + self.top_moon_meridians)
         return [self.top_moon_disc] +[self.front_moon_disc] + self.top_moon_meridians + [self.moon_face_disc] + self.moon_face_meridians + self.front_moon_parallels + [self.equator_segments]
 
 
