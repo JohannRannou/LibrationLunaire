@@ -247,7 +247,7 @@ class LibrationPlot(Libration):
         self.front_moon_orbit_segments, = self.front_orbit_axis.plot([-(self.a+self.c), (self.a-self.c)], [-(self.a+self.c)*np.tan(np.radians(self.orbit_inclination)), +(self.a-self.c)*np.tan(np.radians(self.orbit_inclination))], '--', lw=0.5, color='k')
 
     def plot_moon_face(self):
-        """Trace la lune vu de face : disque et méridiens
+        """Trace la lune vu de face : juste le disque 
         """
 
         try:
@@ -258,7 +258,79 @@ class LibrationPlot(Libration):
 
         self.moon_face_disc.radius = (self._face_radius)
         return [self.moon_face_disc]
+
+
+
+    def plot_top_moon_meridians(self):
+        """ Trace les méridiens de la Lune vu de dessus (à updater)
+
+        pour l'instant j'en trace 6 (3 lignes)
+        """
+ 
+        try: 
+            self.top_moon_meridians_segments
+        except:
+            self.top_moon_meridians_segments, = self.top_orbit_axis.plot([], [], '-', lw=1., color='b')
+            # On dessine N segments
+        N = 20
+        t_list = np.linspace( 0, 2 * np.pi, N)
+        pos = np.empty((N, 2))
+        for i, t in enumerate(t_list):
+            X_l = self.moon_radius * np.array([cos(t), 0, sin(t)])
+            X_theta =  self.P_lp_o.T @ self.P_l_lp.T @ X_l
+
+            pos[i,0] = self._x + X_theta[1]
+            pos[i,1] = self._y + X_theta[2]
+
+        self.top_moon_meridians_segments.set_data(pos[:,0], pos[:,1])
+
+
+     
     
+
+    # def plot_moon_face_meridians(self):
+    #     """Trace les méridiens de la Lune vu de la Terre (à updater)
+
+    #     pour l'instant j'en trace 6 (3 lignes)
+    #     """
+
+    #     TWOPI = 2 * np.pi
+
+    #     try:
+    #         self.moon_face_meridians
+    #     except AttributeError:
+    #         self.moon_face_meridians = []
+    #         for i, pos_i in enumerate(self.meridian_angles):
+    #            moon_face_meridian = mpatches.Arc((0, 0), 2 * self._face_radius, 0., color=self.meridian_colors[i])
+    #            self.moon_face_axis.add_patch(moon_face_meridian)
+    #            self.moon_face_meridians.append(moon_face_meridian)
+    #     for i, meridian in enumerate(self.moon_face_meridians):
+    #         meridian.width = -2 *self._face_radius*np.sin(self._omega - self._theta + self.meridian_angles[i])
+    #         meridian.height = 2 * self._face_radius
+    #         # meridian.theta1 = 0 + meridian_angles[i]*360/TWOPI
+    #         # meridian.theta2 = 180 + meridian_angles[i]*360/TWOPI
+
+    #         if np.sin(self._omega - self._theta + self.meridian_angles[i]) < 0 :
+    #             meridian.theta1 = -90 + 1e-6 
+    #             meridian.theta2 =  90 - 1e-6
+    #         else:
+    #             meridian.theta1 = 90 - 1e-6 
+    #             meridian.theta2 = 270 - 1e-6
+
+    #         # Ce qui suit semble ne pas fonctionner
+    #         if np.cos(self._omega - self._theta + self.meridian_angles[i]) < 0 :
+    #             meridian.linestyle = '--'
+    #             meridian.linewidth = 2
+    #         else:
+    #             meridian.linestyle = '--'
+    #             meridian.linewidth = 0.2
+
+    #         # meridian.theta1 = -90 - 0.000001 
+    #         # meridian.theta2 =  90 -0.000001
+
+
+    #     return self.moon_face_meridians
+
 
     def plot_moon_face_meridians(self):
         """Trace les méridiens de la Lune vu de la Terre (à updater)
@@ -266,43 +338,22 @@ class LibrationPlot(Libration):
         pour l'instant j'en trace 6 (3 lignes)
         """
 
-        TWOPI = 2 * np.pi
+        try: 
+            self.moon_face_meridians_segments
+        except:
+            self.moon_face_meridians_segments, = self.moon_face_axis.plot([], [], '-', lw=1., color='b')
+            # On dessine N segments
+        N = 30
+        t_list = np.linspace( 0, 2 * np.pi, N)
+        pos = np.empty((N, 2))
+        for i, t in enumerate(t_list):
+            X_l = self._face_radius * np.array([cos(t), 0, sin(t)])
+            X_theta = self.P_o_theta.T @ self.P_lp_o.T @ self.P_l_lp.T @ X_l
 
-        try:
-            self.moon_face_meridians
-        except AttributeError:
-            self.moon_face_meridians = []
-            for i, pos_i in enumerate(self.meridian_angles):
-               moon_face_meridian = mpatches.Arc((0, 0), 2 * self._face_radius, 0., color=self.meridian_colors[i])
-               self.moon_face_axis.add_patch(moon_face_meridian)
-               self.moon_face_meridians.append(moon_face_meridian)
-        for i, meridian in enumerate(self.moon_face_meridians):
-            meridian.width = -2 *self._face_radius*np.sin(self._omega - self._theta + self.meridian_angles[i])
-            meridian.height = 2 * self._face_radius
-            # meridian.theta1 = 0 + meridian_angles[i]*360/TWOPI
-            # meridian.theta2 = 180 + meridian_angles[i]*360/TWOPI
+            pos[i,0] = X_theta[2]
+            pos[i,1] = X_theta[0]
 
-            if np.sin(self._omega - self._theta + self.meridian_angles[i]) < 0 :
-                meridian.theta1 = -90 + 1e-6 
-                meridian.theta2 =  90 - 1e-6
-            else:
-                meridian.theta1 = 90 - 1e-6 
-                meridian.theta2 = 270 - 1e-6
-
-            # Ce qui suit semble ne pas fonctionner
-            if np.cos(self._omega - self._theta + self.meridian_angles[i]) < 0 :
-                meridian.linestyle = '--'
-                meridian.linewidth = 2
-            else:
-                meridian.linestyle = '--'
-                meridian.linewidth = 0.2
-
-            # meridian.theta1 = -90 - 0.000001 
-            # meridian.theta2 =  90 -0.000001
-
-
-        return self.moon_face_meridians
-
+        self.moon_face_meridians_segments.set_data(pos[:,0], pos[:,1])
 
 
     def plot_moon_face_equator(self):
@@ -334,36 +385,6 @@ class LibrationPlot(Libration):
 
         self.equator_segments.set_data(pos[:,0], pos[:,1])
 
-
-
-
-    def plot_top_moon_meridians(self):
-        """ Trace les méridiens de la Lune vu de dessus (à updater)
-
-        pour l'instant j'en trace 6 (3 lignes)
-        """
- 
-        try:
-            self.top_moon_meridians
-        except AttributeError:
-            self.top_moon_meridians = []
-            for i, pos_i in enumerate(self.meridian_angles):
-                moon_meridian, = self.top_orbit_axis.plot([], [], '-', lw=1, color=self.meridian_colors[i])
-                self.top_moon_meridians.append(moon_meridian)
-
-        # for i, angle in enumerate(self.meridian_angles):
-        #     pt_1 = [
-        #                 x,    
-        #                 self.moon_radius*np.cos(angle + self._omega) + x, 
-        #             ]
-        #     pt_2 = [
-        #                 y,
-        #                self.moon_radius*np.sin(angle + self._omega) + y,
-        #                ]
-        #     self.top_moon_meridians[i].set_data(pt_1, pt_2) 
-            
-
-        return self.top_moon_meridians
 
 
 
@@ -432,7 +453,7 @@ class LibrationPlot(Libration):
         self.plot_moon_face_equator()
 
         # Must return an iterable
-        return [self.top_moon_disc] +[self.front_moon_disc] + self.top_moon_meridians + [self.moon_face_disc] + self.moon_face_meridians + self.front_moon_parallels + [self.equator_segments]
+        return [self.top_moon_disc] +[self.front_moon_disc] + [self.top_moon_meridians_segments] + [self.moon_face_disc] + [self.moon_face_meridians_segments] + self.front_moon_parallels + [self.equator_segments]
 
 
 libration_parameters = Libration()
@@ -460,7 +481,7 @@ libration = LibrationPlot((ax1, ax2, ax3))
 # create a time array from 0..t_stop in days
 dt = 0.1
 t = np.arange(0, libration_parameters.T, dt)
-# t=[7.5]
+# t=[libration_parameters.T/4*0]
 print(t)
 print(f'nb points = {len(t)}')
 
