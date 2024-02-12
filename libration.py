@@ -181,26 +181,37 @@ class Libration():
 class LibrationPlot(Libration):
     """Complète la classe Libration avec des fonction qui tracent les éléments à afficher
 
-
     Il y a plusieurs vues :
-
-    
-
         * vue de face
-
-
         * vue de dessus
-
-
-
-
-
 
     """
 
-    def __init__(self, axis):
+    def __init__(self):
         Libration.__init__(self)
-        self.top_orbit_axis, self.moon_face_axis, self.front_orbit_axis = axis
+
+        self.fig = plt.figure(figsize=(10, 10))
+
+
+
+        self.top_orbit_axis = self.fig.add_subplot(223, autoscale_on=False, xlim=(-2*self.a, 2*self.a), ylim=(-2*self.a, 2*self.a))
+        self.moon_face_axis = self.fig.add_subplot(224, autoscale_on=False, xlim=(-1, 1), ylim=(-1, 1))
+        self.front_orbit_axis = self.fig.add_subplot(221, autoscale_on=False, xlim=(-2*self.a, 2*self.a), ylim=(-2*self.a, 2*self.a))
+        self.top_orbit_axis.set_aspect('equal')
+        self.moon_face_axis.set_aspect('equal')
+        self.top_orbit_axis.grid()
+        self.moon_face_axis.grid()
+        self.top_orbit_axis.grid()
+
+
+
+        top_earth_disc = plt.Circle((0, 0), self.earth_radius, color='b')
+        self.top_orbit_axis.add_patch(top_earth_disc)
+        front_earth_disc = plt.Circle((0, 0), self.earth_radius, color='b')
+        self.front_orbit_axis.add_patch(front_earth_disc)
+
+
+
 
         # Disque lunaire
         self.top_moon_disc = plt.Circle((self.a, 0), self.moon_radius, color='gold', alpha=0.75)
@@ -289,54 +300,6 @@ class LibrationPlot(Libration):
             pos[i,1] = self._y + X_theta[2]
 
         self.top_moon_meridians_segments.set_data(pos[:,0], pos[:,1])
-
-
-     
-    
-
-    # def plot_moon_face_meridians(self):
-    #     """Trace les méridiens de la Lune vu de la Terre (à updater)
-
-    #     pour l'instant j'en trace 6 (3 lignes)
-    #     """
-
-    #     TWOPI = 2 * np.pi
-
-    #     try:
-    #         self.moon_face_meridians
-    #     except AttributeError:
-    #         self.moon_face_meridians = []
-    #         for i, pos_i in enumerate(self.meridian_angles):
-    #            moon_face_meridian = mpatches.Arc((0, 0), 2 * self._face_radius, 0., color=self.meridian_colors[i])
-    #            self.moon_face_axis.add_patch(moon_face_meridian)
-    #            self.moon_face_meridians.append(moon_face_meridian)
-    #     for i, meridian in enumerate(self.moon_face_meridians):
-    #         meridian.width = -2 *self._face_radius*np.sin(self._omega - self._theta + self.meridian_angles[i])
-    #         meridian.height = 2 * self._face_radius
-    #         # meridian.theta1 = 0 + meridian_angles[i]*360/TWOPI
-    #         # meridian.theta2 = 180 + meridian_angles[i]*360/TWOPI
-
-    #         if np.sin(self._omega - self._theta + self.meridian_angles[i]) < 0 :
-    #             meridian.theta1 = -90 + 1e-6 
-    #             meridian.theta2 =  90 - 1e-6
-    #         else:
-    #             meridian.theta1 = 90 - 1e-6 
-    #             meridian.theta2 = 270 - 1e-6
-
-    #         # Ce qui suit semble ne pas fonctionner
-    #         if np.cos(self._omega - self._theta + self.meridian_angles[i]) < 0 :
-    #             meridian.linestyle = '--'
-    #             meridian.linewidth = 2
-    #         else:
-    #             meridian.linestyle = '--'
-    #             meridian.linewidth = 0.2
-
-    #         # meridian.theta1 = -90 - 0.000001 
-    #         # meridian.theta2 =  90 -0.000001
-
-
-    #     return self.moon_face_meridians
-
 
     def plot_moon_face_meridians(self):
         """Trace les méridiens de la Lune vu de la Terre (à updater)
@@ -446,7 +409,7 @@ class LibrationPlot(Libration):
 
 
 
-    def animate(self, time):
+    def _animate(self, time):
 
         self.update(time)
         # Plot de l'orbite vu de dessus
@@ -464,36 +427,15 @@ class LibrationPlot(Libration):
         return [self.top_moon_disc] +[self.front_moon_disc] + [self.top_moon_meridians_segments] + [self.moon_face_disc] + [self.moon_face_meridians_segments] + self.front_moon_parallels + [self.equator_segments]
 
 
-libration_parameters = Libration()
+    def animate(self):
 
-fig = plt.figure(figsize=(10, 10))
+        # create a time array from 0..t_stop in days
+        dt = 0.1
+        t = np.arange(0, self.T, dt)
+        # t=[libration_parameters.T/4*1]
 
-# fig, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
-ax1 = fig.add_subplot(223, autoscale_on=False, xlim=(-2*libration_parameters.a, 2*libration_parameters.a), ylim=(-2*libration_parameters.a, 2*libration_parameters.a))
-ax2 = fig.add_subplot(224, autoscale_on=False, xlim=(-1, 1), ylim=(-1, 1))
-ax3 = fig.add_subplot(221, autoscale_on=False, xlim=(-2*libration_parameters.a, 2*libration_parameters.a), ylim=(-2*libration_parameters.a, 2*libration_parameters.a))
-ax1.set_aspect('equal')
-ax2.set_aspect('equal')
-ax1.grid()
-ax2.grid()
-ax3.grid()
+        ani = animation.FuncAnimation(self.fig, self._animate, frames= t, interval=50, blit=True)
+        plt.show()
 
-
-top_earth_disc = plt.Circle((0, 0), libration_parameters.earth_radius, color='b')
-ax1.add_patch(top_earth_disc)
-front_earth_disc = plt.Circle((0, 0), libration_parameters.earth_radius, color='b')
-ax3.add_patch(front_earth_disc)
-
-
-libration = LibrationPlot((ax1, ax2, ax3))
-# create a time array from 0..t_stop in days
-dt = 0.1
-t = np.arange(0, libration_parameters.T, dt)
-# t=[libration_parameters.T/4*0]
-print(t)
-print(f'nb points = {len(t)}')
-
-
-ani = animation.FuncAnimation(
-    fig, libration.animate, frames= t, interval=50, blit=True)
-plt.show()
+libration = LibrationPlot()
+libration.animate()
