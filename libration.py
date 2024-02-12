@@ -71,8 +71,8 @@ class Libration():
     def _modify(self):
         """Modify parameters to highlight a specific phenomenon
         """
-        self.orbit_inclination = 0       # Inclinaison en ° de l'orbite lunaire par rapport au plan de l'écliptique (°)
-        self.moon_axis_inclination = 0   # Inclinaison en ° de l'axe de rotation de la Lune par rapport au plan de son orbite autour de la Terre
+        self.orbit_inclination = np.radians(0)       # Inclinaison en ° de l'orbite lunaire par rapport au plan de l'écliptique (°)
+        self.moon_axis_inclination = np.radians(10)   # Inclinaison en ° de l'axe de rotation de la Lune par rapport au plan de son orbite autour de la Terre
         self.ellipticity = 0.05490*10               # Ellipticité de l'orbite lunaire
 
         self.T = 10.
@@ -224,7 +224,39 @@ class LibrationPlot(Libration):
         self.parallel_angles = np.array([180, 180-45, 90]) * np.pi/180
         self.parallel_colors = ['r', 'b', 'k']
 
+    def _plot_ellipse(self, original_circle_function, rotation, translation=[0,0], permutation=(0, 1 ,2)):
+        """Trace un cercle reprojeté dans une base donnée par la matrice de rotation 
+            original_circle_function est une fonction du paramètres t qui retourne un vecteur de taille 3
+            Translation est un vecteur 2 qui rajoute une translation
 
+            La fonction retourne deux vecteurs position : front et back
+        """
+        # Nombre de points pour définir l'ellipse
+        N=50
+        # t paramétrise le cercle initial
+        t_list = np.linspace( 0, 2 * np.pi , N)
+        pos = np.empty((N, 3))
+        for i, t in enumerate(t_list):
+            X_theta = rotation @ original_circle_function(t)
+            pos[i,0] = translation[0] + X_theta[permutation[0]]
+            pos[i,1] = translation[1] + X_theta[permutation[1]]
+            pos[i,2] = X_theta[permutation[2]]
+
+
+        # On filtre ce qui est à l'avant de ce qui est à l'arrière
+        is_front = pos[:,2]>0
+        front_pos = pos[is_front,:2]
+        back_pos = pos[(np.logical_not(is_front)),:2]
+
+        # Pour éviter les lignes droites de "lien", on tri
+        f_ind = np.argsort(front_pos[:,0])
+        f_sort = front_pos[f_ind,:2]
+        b_ind = np.argsort(back_pos[:,0])
+        b_sort = back_pos[b_ind,:2]
+      
+        
+        return f_sort, b_sort
+        
     def plot_top_moon_disc(self):
         """Trace le disque lunaire (à updater)
         """
@@ -337,22 +369,17 @@ class LibrationPlot(Libration):
             self.equator_segments
         except:
             self.equator_segments, = self.moon_face_axis.plot([], [], '-', lw=2., color='c')
+            self.equator_segments_back, = self.moon_face_axis.plot([], [], '--', lw=1., color='c')
             # On dessine N segments
-        N = 30
-        t_list = np.linspace( 0, 2 * np.pi, N)
-        pos = np.empty((N, 2))
-        for i, t in enumerate(t_list):
-            # pos[i,0] = self._face_radius * (np.cos(self._theta-np.pi/2) * np.cos(self.alpha) * np.cos(t) + np.sin(self._theta-np.pi/2)*np.sin(t))
-            # pos[i,1] = self._face_radius * (-np.sin(self.alpha) * np.cos(t))
 
-            X_l = self._face_radius * np.array([0, cos(t), sin(t)])
 
-            X_theta = self.P_o_theta.T @ self.P_lp_o.T @ self.P_l_lp.T @ X_l
+        front, back = self._plot_ellipse(lambda t : self._face_radius * np.array([0, cos(t), sin(t)]), 
+                                 self.P_o_theta.T @ self.P_lp_o.T @ self.P_l_lp.T,
+                                 permutation = (2,0,1))
 
-            pos[i,0] = X_theta[2]
-            pos[i,1] = X_theta[0]
 
-        self.equator_segments.set_data(pos[:,0], pos[:,1])
+        self.equator_segments.set_data(front[:,0], front[:,1])
+        self.equator_segments_back.set_data(back[:,0], back[:,1])
 
 
 
@@ -424,7 +451,7 @@ class LibrationPlot(Libration):
         self.plot_moon_face_equator()
 
         # Must return an iterable
-        return [self.top_moon_disc] +[self.front_moon_disc] + [self.top_moon_meridians_segments] + [self.moon_face_disc] + [self.moon_face_meridians_segments] + self.front_moon_parallels + [self.equator_segments]
+        return [self.top_moon_disc] +[self.front_moon_disc] + [self.top_moon_meridians_segments] + [self.moon_face_disc] + [self.moon_face_meridians_segments] + self.front_moon_parallels + [self.equator_segments, self.equator_segments_back]
 
 
     def animate(self):
@@ -432,7 +459,7 @@ class LibrationPlot(Libration):
         # create a time array from 0..t_stop in days
         dt = 0.1
         t = np.arange(0, self.T, dt)
-        # t=[libration_parameters.T/4*1]
+        # t=[self.T*0.]
 
         ani = animation.FuncAnimation(self.fig, self._animate, frames= t, interval=50, blit=True)
         plt.show()
