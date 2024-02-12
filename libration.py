@@ -39,17 +39,24 @@ class Libration():
         self.time = 0.
 
         # Paramètres du problème
-        self.ellipticity = 0.05490*10               # Ellipticité de l'orbite lunaire
+        self.ellipticity = 0.05490               # Ellipticité de l'orbite lunaire
         self.a = 384399                     # demi grand axe de l'orbite lunaire (km)
         self.b = self.a*np.sqrt(1-self.ellipticity**2)                     # demi petit axe de l'orbite lunaire (km)
         self.c = np.sqrt(self.a**2 - self.b**2)                            # distance centre-foyer (km)
-        self.earth_axis_inclination = 23.44    # Obliquité : inclinaison de l'axe de rotation de la Terre par rapport au plan de l'écliptique
-        self.orbit_inclination = 5.145       # Inclinaison de l'orbite lunaire par rapport au plan de l'écliptique (°)
-        self.moon_axis_inclination = 6.68   # Inclinaison de l'axe de rotation de la Lune par rapport au plan de son orbite autour de la Terre
-        self.alpha = (self.orbit_inclination - self.moon_axis_inclination )  # angle en degrés entre l'équateur de la Lune et le plan de l'écliptique
+        self.earth_axis_inclination = np.radians(23.44)    # Obliquité : inclinaison de l'axe de rotation de la Terre par rapport au plan de l'écliptique
+        self.orbit_inclination = np.radians(5.145)       # Inclinaison de l'orbite lunaire par rapport au plan de l'écliptique
+        self.moon_axis_inclination = np.radians(6.68)   # Inclinaison de l'axe de rotation de la Lune par rapport au plan de son orbite autour de la Terre
         self.T = 27.321                       # Période de rotation (sidérale ?) de la Lune
         self.earth_radius = 12000/2*5           # Rayon de la Terre (km)
         self.moon_radius = 1736.*50            # Rayon de la Lune (km)
+
+
+        # Pour modifier temporairement les paramètres pour faire des expériences
+        self._modify()
+
+        # Relations
+        self.alpha = self.orbit_inclination - self.moon_axis_inclination # angle en radian entre l'équateur de la Lune et le plan de l'écliptique
+
 
         # Paramètres d'état
         self._theta = 0.               # coordonnée angulaire du référentiel géocentrique
@@ -60,17 +67,16 @@ class Libration():
         self._z = 0.
         self._face_radius = 1.
 
-        self._modify()
 
     def _modify(self):
         """Modify parameters to highlight a specific phenomenon
         """
-        self.orbit_inclination = 10       # Inclinaison de l'orbite lunaire par rapport au plan de l'écliptique (°)
-        self.moon_axis_inclination = 20   # Inclinaison de l'axe de rotation de la Lune par rapport au plan de son orbite autour de la Terre
+        self.orbit_inclination = 0       # Inclinaison en ° de l'orbite lunaire par rapport au plan de l'écliptique (°)
+        self.moon_axis_inclination = 0   # Inclinaison en ° de l'axe de rotation de la Lune par rapport au plan de son orbite autour de la Terre
+        self.ellipticity = 0.05490*10               # Ellipticité de l'orbite lunaire
+
         self.T = 10.
-        # self.orbit_inclination = 20
-        # Recalculé ici au cas ou les paramètres seraient modifiés ici
-        self.alpha = (self.orbit_inclination - self.moon_axis_inclination)
+
     
     def set_time(self,time):
         """
@@ -164,7 +170,7 @@ class Libration():
         self.get_distance(theta)
         self._x = self._r * cos(theta) 
         self._y = self._r * sin(theta) 
-        self._z = self._x * np.tan(np.radians(self.orbit_inclination)) 
+        self._z = self._x * np.tan(self.orbit_inclination)
 
         return self._x, self._y, self._z 
 
@@ -244,7 +250,7 @@ class LibrationPlot(Libration):
 
 
 
-        self.front_moon_orbit_segments, = self.front_orbit_axis.plot([-(self.a+self.c), (self.a-self.c)], [-(self.a+self.c)*np.tan(np.radians(self.orbit_inclination)), +(self.a-self.c)*np.tan(np.radians(self.orbit_inclination))], '--', lw=0.5, color='k')
+        self.front_moon_orbit_segments, = self.front_orbit_axis.plot([-(self.a+self.c), (self.a-self.c)], [-(self.a+self.c)*np.tan(self.orbit_inclination), +(self.a-self.c)*np.tan(self.orbit_inclination)], '--', lw=0.5, color='k')
 
     def plot_moon_face(self):
         """Trace la lune vu de face : juste le disque 
@@ -412,21 +418,23 @@ class LibrationPlot(Libration):
 
 
         print(self.alpha)
-        pt_1 = [x - self.moon_radius * np.cos(np.radians(self.alpha)),
-                x + self.moon_radius * np.cos(np.radians(self.alpha)),
+        pt_1 = [x - self.moon_radius * np.cos(self.alpha),
+                x + self.moon_radius * np.cos(self.alpha),
                 ]
         
-        pt_2 = [z - self.moon_radius * np.sin(np.radians(self.alpha)),
-                z + self.moon_radius * np.sin(np.radians(self.alpha)),
+        pt_2 = [z - self.moon_radius * np.sin(self.alpha),
+                z + self.moon_radius * np.sin(self.alpha),
                 ]
         self.front_moon_parallels[0].set_data(pt_1, pt_2)
 
-        pt_3 = [x - self.moon_radius * 1.4 * np.sin(np.radians(self.alpha)),
-                x + self.moon_radius * 1.4 * np.sin(np.radians(self.alpha)),
+
+        # Axe de rotation
+        pt_3 = [x - self.moon_radius * 1.4 * np.sin(self.alpha),
+                x + self.moon_radius * 1.4 * np.sin(self.alpha),
                 ]
         
-        pt_4 = [z + self.moon_radius * 1.4 * np.cos(np.radians(self.alpha)),
-                z - self.moon_radius * 1.4 * np.cos(np.radians(self.alpha)),
+        pt_4 = [z + self.moon_radius * 1.4 * np.cos(self.alpha),
+                z - self.moon_radius * 1.4 * np.cos(self.alpha),
                 ]
         self.front_moon_parallels[1].set_data(pt_3, pt_4)
 
