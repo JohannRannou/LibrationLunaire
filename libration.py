@@ -249,12 +249,40 @@ class LibrationPlot(Libration):
         back_pos = pos[(np.logical_not(is_front)),:2]
 
         # Pour éviter les lignes droites de "lien", on tri
-        f_ind = np.argsort(front_pos[:,0])
-        f_sort = front_pos[f_ind,:2]
-        b_ind = np.argsort(back_pos[:,0])
-        b_sort = back_pos[b_ind,:2]
-      
-        
+       
+        abs_diff = np.absolute(np.diff(front_pos, axis=0))
+        sort_ = np.argsort(abs_diff, axis=0)
+        max_ = sort_[-1]
+        if abs_diff[sort_[-1,0],0] > 2 * abs_diff[sort_[-2,0],0]:
+            f_sort = np.roll(front_pos, -max_[0]-1, axis=0)
+        elif abs_diff[sort_[-1,1],1] > 2 * abs_diff[sort_[-2,1],1]:
+            f_sort = np.roll(front_pos, -max_[1]-1, axis=0)
+        else:
+            f_sort = front_pos
+  
+
+        abs_diff = np.absolute(np.diff(back_pos, axis=0))
+        sort_ = np.argsort(abs_diff, axis=0)
+        max_ = sort_[-1]
+        if abs_diff[sort_[-1,0],0] > 2 * abs_diff[sort_[-2,0],0]:
+            b_sort = np.roll(back_pos, -max_[0]-1, axis=0)
+        elif abs_diff[sort_[-1,1],1] > 2 * abs_diff[sort_[-2,1],1]:
+            b_sort = np.roll(back_pos, -max_[1]-1, axis=0)
+        else:
+            b_sort = back_pos
+
+
+
+        print('. . . . .')
+        print(f_sort)
+
+
+    # #   
+        # b_ind = np.argsort(back_pos[:,0])
+        # b_sort = back_pos[b_ind,:2]
+        # b_sort = back_pos
+
+        # return front_pos, back_pos
         return f_sort, b_sort
         
     def plot_top_moon_disc(self):
@@ -343,18 +371,16 @@ class LibrationPlot(Libration):
             self.moon_face_meridians_segments
         except:
             self.moon_face_meridians_segments, = self.moon_face_axis.plot([], [], '-', lw=1., color='b')
-            # On dessine N segments
-        N = 30
-        t_list = np.linspace( 0, 2 * np.pi, N)
-        pos = np.empty((N, 2))
-        for i, t in enumerate(t_list):
-            X_l = self._face_radius * np.array([cos(t), 0, sin(t)])
-            X_theta = self.P_o_theta.T @ self.P_lp_o.T @ self.P_l_lp.T @ X_l
+            self.moon_face_meridians_segments_back, = self.moon_face_axis.plot([], [], '--', lw=0.5, color='b')
 
-            pos[i,0] = X_theta[2]
-            pos[i,1] = X_theta[0]
 
-        self.moon_face_meridians_segments.set_data(pos[:,0], pos[:,1])
+        front, back = self._plot_ellipse(lambda t : self._face_radius * np.array([sin(t), 0, cos(t)]), 
+                                 self.P_o_theta.T @ self.P_lp_o.T @ self.P_l_lp.T,
+                                 permutation = (2,0,1))
+
+        self.moon_face_meridians_segments.set_data(front[:,0], front[:,1])
+        self.moon_face_meridians_segments_back.set_data(back[:,0], back[:,1])
+
 
 
     def plot_moon_face_equator(self):
@@ -370,23 +396,16 @@ class LibrationPlot(Libration):
         except:
             self.equator_segments, = self.moon_face_axis.plot([], [], '-', lw=2., color='c')
             self.equator_segments_back, = self.moon_face_axis.plot([], [], '--', lw=1., color='c')
-            # On dessine N segments
-
 
         front, back = self._plot_ellipse(lambda t : self._face_radius * np.array([0, cos(t), sin(t)]), 
                                  self.P_o_theta.T @ self.P_lp_o.T @ self.P_l_lp.T,
                                  permutation = (2,0,1))
 
-
         self.equator_segments.set_data(front[:,0], front[:,1])
         self.equator_segments_back.set_data(back[:,0], back[:,1])
-
-
-
-
-
+        
     def plot_front_moon_parallels(self):
-        """ Trace les parallèles de la Lune vu de dessus (à updater)
+        """ Trace les parallèles de la Lune vu de face (à updater)
 
         pour l'instant je ne trace que l'équateur et ça devrait suffire)
 
@@ -451,7 +470,7 @@ class LibrationPlot(Libration):
         self.plot_moon_face_equator()
 
         # Must return an iterable
-        return [self.top_moon_disc] +[self.front_moon_disc] + [self.top_moon_meridians_segments] + [self.moon_face_disc] + [self.moon_face_meridians_segments] + self.front_moon_parallels + [self.equator_segments, self.equator_segments_back]
+        return [self.top_moon_disc] +[self.front_moon_disc] + [self.top_moon_meridians_segments] + [self.moon_face_disc] + [self.moon_face_meridians_segments, self.moon_face_meridians_segments_back] + self.front_moon_parallels + [self.equator_segments, self.equator_segments_back]
 
 
     def animate(self):
@@ -459,7 +478,7 @@ class LibrationPlot(Libration):
         # create a time array from 0..t_stop in days
         dt = 0.1
         t = np.arange(0, self.T, dt)
-        # t=[self.T*0.]
+        # t=[self.T*0.55]
 
         ani = animation.FuncAnimation(self.fig, self._animate, frames= t, interval=50, blit=True)
         plt.show()
