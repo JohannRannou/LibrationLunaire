@@ -218,11 +218,9 @@ class LibrationPlot(Libration):
         self.top_orbit_axis.add_patch(self.top_moon_disc)
         self.plot_moon_orbit_segments()
     
-        self.meridian_angles = np.array([180, 180-45, 90]) * np.pi/180
-        self.meridian_colors = ['r', 'b', 'k']
 
-        self.parallel_angles = np.array([180, 180-45, 90]) * np.pi/180
-        self.parallel_colors = ['r', 'b', 'k']
+        self.meridian_angles = [np.radians(0), np.radians(89) ]
+        self.meridian_colors = ['b', 'g' ]
 
     def _plot_ellipse(self, original_circle_function, rotation, translation=[0,0], permutation=(0, 1 ,2)):
         """Trace un cercle reprojeté dans une base donnée par la matrice de rotation 
@@ -232,7 +230,7 @@ class LibrationPlot(Libration):
             La fonction retourne deux vecteurs position : front et back
         """
         # Nombre de points pour définir l'ellipse
-        N=50
+        N = 50
         # t paramétrise le cercle initial
         t_list = np.linspace( 0, 2 * np.pi , N)
         pos = np.empty((N, 3))
@@ -344,29 +342,26 @@ class LibrationPlot(Libration):
         pour l'instant j'en trace 6 (3 lignes)
         """
  
+
+
         try: 
             self.top_moon_meridians_segments
         except:
-            self.top_moon_meridians_segments, = self.top_orbit_axis.plot([], [], '-', lw=1., color='b')
-            self.top_moon_meridians_segments_back, = self.top_orbit_axis.plot([], [], '--', lw=.5, color='b')
-            # On dessine N segments
-        # N = 20
-        # t_list = np.linspace( 0, 2 * np.pi, N)
-        # pos = np.empty((N, 2))
-        # for i, t in enumerate(t_list):
-        #     X_l = self.moon_radius * np.array([cos(t), 0, sin(t)])
-        #     X_theta =  self.P_lp_o.T @ self.P_l_lp.T @ X_l
+            self.top_moon_meridians_segments = []
+            self.top_moon_meridians_segments_back = []
 
-        #     pos[i,0] = self._x + X_theta[1]
-        #     pos[i,1] = self._y + X_theta[2]
-        # self.top_moon_meridians_segments.set_data(pos[:,0], pos[:,1])
+            for color in self.meridian_colors:
+                self.top_moon_meridians_segments.append(self.top_orbit_axis.plot([], [], '-', lw=1., color=color)[0])
+                self.top_moon_meridians_segments_back.append(self.top_orbit_axis.plot([], [], '--', lw=.5, color=color)[0])
 
-        front, back = self._plot_ellipse(lambda t : self.moon_radius * np.array([cos(t), 0, sin(t)]), 
-                                 self.P_lp_o.T @ self.P_l_lp.T,
-                                 permutation = (1,2,0), translation=[self._x, self._y])
+        for i, angle in enumerate(self.meridian_angles):
+            front, back = self._plot_ellipse(lambda t : self.moon_radius * np.array([cos(t), sin(angle)*sin(t), cos(angle)*sin(t)]), 
+                                     self.P_lp_o.T @ self.P_l_lp.T,
+                                     permutation = (1,2,0), translation=[self._x, self._y])
 
-        self.top_moon_meridians_segments.set_data(front[:,0], front[:,1])
-        self.top_moon_meridians_segments_back.set_data(back[:,0], back[:,1])
+            print(self.top_moon_meridians_segments)
+            self.top_moon_meridians_segments[i].set_data(front[:,0], front[:,1])
+            self.top_moon_meridians_segments_back[i].set_data(back[:,0], back[:,1])
 
 
     def plot_moon_face_meridians(self):
@@ -378,16 +373,22 @@ class LibrationPlot(Libration):
         try: 
             self.moon_face_meridians_segments
         except:
-            self.moon_face_meridians_segments, = self.moon_face_axis.plot([], [], '-', lw=1., color='b')
-            self.moon_face_meridians_segments_back, = self.moon_face_axis.plot([], [], '--', lw=0.5, color='b')
+            self.moon_face_meridians_segments = []
+            self.moon_face_meridians_segments_back = []
 
+            for color in self.meridian_colors:
+                self.moon_face_meridians_segments.append(self.moon_face_axis.plot([], [], '-', lw=1., color=color)[0])
+                self.moon_face_meridians_segments_back.append(self.moon_face_axis.plot([], [], '--', lw=.5, color=color)[0])
 
-        front, back = self._plot_ellipse(lambda t : self._face_radius * np.array([sin(t), 0, cos(t)]), 
-                                 self.P_o_theta.T @ self.P_lp_o.T @ self.P_l_lp.T,
-                                 permutation = (2,0,1))
+        for i, angle in enumerate(self.meridian_angles):
+            front, back = self._plot_ellipse(lambda t : self._face_radius * np.array([cos(t), sin(angle)*sin(t), cos(angle)*sin(t)]), 
+                                     self.P_o_theta.T @ self.P_lp_o.T @ self.P_l_lp.T,
+                                     permutation = (2,0,1))
 
-        self.moon_face_meridians_segments.set_data(front[:,0], front[:,1])
-        self.moon_face_meridians_segments_back.set_data(back[:,0], back[:,1])
+            print(self.moon_face_meridians_segments)
+            self.moon_face_meridians_segments[i].set_data(front[:,0], front[:,1])
+            self.moon_face_meridians_segments_back[i].set_data(back[:,0], back[:,1])
+
 
 
 
@@ -478,7 +479,7 @@ class LibrationPlot(Libration):
         self.plot_moon_face_equator()
 
         # Must return an iterable
-        return [self.top_moon_disc] +[self.front_moon_disc] + [self.top_moon_meridians_segments, self.top_moon_meridians_segments_back] + [self.moon_face_disc] + [self.moon_face_meridians_segments, self.moon_face_meridians_segments_back] + self.front_moon_parallels + [self.equator_segments, self.equator_segments_back]
+        return [self.top_moon_disc] +[self.front_moon_disc] + self.top_moon_meridians_segments + self.top_moon_meridians_segments_back + [self.moon_face_disc] + self.moon_face_meridians_segments + self.moon_face_meridians_segments_back + self.front_moon_parallels + [self.equator_segments, self.equator_segments_back]
 
 
     def animate(self):
@@ -486,7 +487,7 @@ class LibrationPlot(Libration):
         # create a time array from 0..t_stop in days
         dt = 0.1
         t = np.arange(0, self.T, dt)
-        # t=[self.T*0.55]
+        # t=[self.T*0.25]
 
         ani = animation.FuncAnimation(self.fig, self._animate, frames= t, interval=50, blit=True)
         plt.show()
