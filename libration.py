@@ -348,18 +348,26 @@ class LibrationPlot(Libration):
             self.top_moon_meridians_segments
         except:
             self.top_moon_meridians_segments, = self.top_orbit_axis.plot([], [], '-', lw=1., color='b')
+            self.top_moon_meridians_segments_back, = self.top_orbit_axis.plot([], [], '--', lw=.5, color='b')
             # On dessine N segments
-        N = 20
-        t_list = np.linspace( 0, 2 * np.pi, N)
-        pos = np.empty((N, 2))
-        for i, t in enumerate(t_list):
-            X_l = self.moon_radius * np.array([cos(t), 0, sin(t)])
-            X_theta =  self.P_lp_o.T @ self.P_l_lp.T @ X_l
+        # N = 20
+        # t_list = np.linspace( 0, 2 * np.pi, N)
+        # pos = np.empty((N, 2))
+        # for i, t in enumerate(t_list):
+        #     X_l = self.moon_radius * np.array([cos(t), 0, sin(t)])
+        #     X_theta =  self.P_lp_o.T @ self.P_l_lp.T @ X_l
 
-            pos[i,0] = self._x + X_theta[1]
-            pos[i,1] = self._y + X_theta[2]
+        #     pos[i,0] = self._x + X_theta[1]
+        #     pos[i,1] = self._y + X_theta[2]
+        # self.top_moon_meridians_segments.set_data(pos[:,0], pos[:,1])
 
-        self.top_moon_meridians_segments.set_data(pos[:,0], pos[:,1])
+        front, back = self._plot_ellipse(lambda t : self.moon_radius * np.array([cos(t), 0, sin(t)]), 
+                                 self.P_lp_o.T @ self.P_l_lp.T,
+                                 permutation = (1,2,0), translation=[self._x, self._y])
+
+        self.top_moon_meridians_segments.set_data(front[:,0], front[:,1])
+        self.top_moon_meridians_segments_back.set_data(back[:,0], back[:,1])
+
 
     def plot_moon_face_meridians(self):
         """Trace les méridiens de la Lune vu de la Terre (à updater)
@@ -470,7 +478,7 @@ class LibrationPlot(Libration):
         self.plot_moon_face_equator()
 
         # Must return an iterable
-        return [self.top_moon_disc] +[self.front_moon_disc] + [self.top_moon_meridians_segments] + [self.moon_face_disc] + [self.moon_face_meridians_segments, self.moon_face_meridians_segments_back] + self.front_moon_parallels + [self.equator_segments, self.equator_segments_back]
+        return [self.top_moon_disc] +[self.front_moon_disc] + [self.top_moon_meridians_segments, self.top_moon_meridians_segments_back] + [self.moon_face_disc] + [self.moon_face_meridians_segments, self.moon_face_meridians_segments_back] + self.front_moon_parallels + [self.equator_segments, self.equator_segments_back]
 
 
     def animate(self):
